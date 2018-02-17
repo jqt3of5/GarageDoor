@@ -74,9 +74,9 @@ void autoShut();
 void error();
 void refreshDisplay();
 
-Timer _errorTimer(60 * 1000, error, true);
-Timer _autoShutTimer(60 * 1000, autoShut, true);
-Timer _refreshTimer(3 * 1000, refreshDisplay, false);
+Timer * _errorTimer;
+Timer * _autoShutTimer;
+Timer * _refreshTimer;
 
 void ShowTimeToClose(int minutes);
 void ShowError(int errorCode);
@@ -248,14 +248,17 @@ void setup()
   pinMode(DOOR, OUTPUT);
 
   pinMode(OPEN_REED, INPUT_PULLDOWN);
+  //TODO: For some reason this didn't work!
   //attachInterrupt(OPEN_REED, open, CHANGE);
 
   pinMode(CLOSE_REED, INPUT_PULLDOWN);
+  //TODO: For some reason this didn't work!
   //attachInterrupt(CLOSE_REED, close, CHANGE);
 
   pinMode(DOOR_OVERRIDE, INPUT_PULLDOWN);
   attachInterrupt(DOOR_OVERRIDE, override, RISING);
 
+  //Get initial state at startup
   _humid = dht.readHumidity();
   _temp = dht.readTemperature(_asFarenheit);
   _closeSwitch = digitalRead(CLOSE_REED) == HIGH;
@@ -263,6 +266,11 @@ void setup()
 
   display.clearDisplay();
   refreshDisplay();
+
+  //Initialize the timers
+  _errorTimer = new Timer(60 * 1000, error, true);
+  _autoShutTimer = new Timer(60 * 1000, autoShut, true);
+  _refreshTimer= new Timer(3 * 1000, refreshDisplay, false);
 
   _refreshTimer.start();
 
@@ -277,6 +285,7 @@ void loop()
   bool closeSwitch = digitalRead(CLOSE_REED) == HIGH;
   bool openSwitch = digitalRead(OPEN_REED) == HIGH;
 
+  //This is an error state. Should never happen
   if (closeSwitch && openSwitch)
   {
     _autoShutTimer.stop();
@@ -285,7 +294,7 @@ void loop()
     _closeSwitch = closeSwitch;
     return;
   }
-
+  //If the open switch just toggled
   if (_openSwitch != openSwitch)
   {
     _failedToShut = false;
@@ -309,7 +318,7 @@ void loop()
       Particle.publish("Door Closing");
     }
   }
-
+  //If the close switch just toggled
   if (_closeSwitch != closeSwitch)
   {
     _failedToShut = false;
