@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:id="@+id/device_name_textview"
+        android:layout_width="200dp"
+        android:layout_height="match_parent" />
+
+    <ImageView
+        android:id="@+id/online_image_view"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="0dp"
+        android:layout_toEndOf="@+id/device_name_textview"
+        android:src="@drawable/online_circle" />
+</RelativeLayout>
