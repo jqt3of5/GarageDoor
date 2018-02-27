@@ -1,19 +1,5 @@
 /*********************************************************************
-This is an example for our Monochrome OLEDs based on SSD1306 drivers
 
-  Pick one up today in the adafruit shop!
-  ------> http://www.adafruit.com/category/63_98
-
-This example is for a 128x64 size display using I2C to communicate
-3 pins are required to interface (2 I2C and one reset)
-
-Adafruit invests time and resources providing this open source code,
-please support Adafruit and open-source hardware by purchasing
-products from Adafruit!
-
-Written by Limor Fried/Ladyada  for Adafruit Industries.
-BSD license, check license.txt for more information
-All text above, and the splash screen must be included in any redistribution
 *********************************************************************/
 
 #include <Wire.h>
@@ -62,41 +48,18 @@ Adafruit_SSD1306 display(OLED_RESET);
 #endif
 
 double _temp = 0, _humid = 0, _charge = 0;
+bool _asFarenheit = true;
 bool _openSwitch = false;
 bool _closeSwitch = false;
-bool _asFarenheit = true;
-bool _overridden = false;
-int _autoShutTimeOut = 5;
-int _timeToShut = 5;
-bool _failedToShut = false;
 
 void autoShut();
 void error();
 void refreshDisplay();
 
-Timer * _errorTimer;
-Timer * _autoShutTimer;
 Timer * _refreshTimer;
 
 void ShowTimeToClose(int minutes);
 void ShowError(int errorCode);
-int toggle(String extra);
-
-void error()
-{
-  _failedToShut = true;
-}
-
-void autoShut()
-{
-  _timeToShut -= 1;
-  if (_timeToShut == 0)
-  {
-    _autoShutTimer.stopFromISR();
-    toggle("");
-  }
-}
-
 void displayString(const char * str)
 {
   int len = strlen(str);
@@ -202,36 +165,13 @@ void ShowTimeToClose(int minutes)
   display.write(minutes + '0');
 }
 
-void override()
-{
-  if (_openSwitch)
-  {
-    _overridden = !_overridden;
-    if (_overridden)
-    {
-      _autoShutTimer.stopFromISR();
-    }
-    else
-    {
-      _timeToShut = _autoShutTimeOut;
-      _autoShutTimer.startFromISR();
-    }
-  }
-}
-
-int toggle(String extra)
-{
-    digitalWrite(DOOR, HIGH);
-    delay(500);
-    digitalWrite(DOOR, LOW);
-}
-
 void setup()
 {
   Particle.variable("humidity", _humid);
   Particle.variable("tempurature", _temp);
   Particle.variable("open", _openSwitch);
   Particle.variable("close", _closeSwitch);
+
   Particle.function("toggle", toggle);
 
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
@@ -242,7 +182,6 @@ void setup()
   display.display();
 
   dht.begin();
-
 //  pinMode(D7, OUTPUT);
 
   pinMode(DOOR, OUTPUT);
@@ -258,20 +197,8 @@ void setup()
   pinMode(DOOR_OVERRIDE, INPUT_PULLDOWN);
   attachInterrupt(DOOR_OVERRIDE, override, RISING);
 
-  //Get initial state at startup
-  _humid = dht.readHumidity();
-  _temp = dht.readTemperature(_asFarenheit);
-  _closeSwitch = digitalRead(CLOSE_REED) == HIGH;
-  _openSwitch = digitalRead(OPEN_REED) == HIGH;
-
   display.clearDisplay();
-  refreshDisplay();
-
-  //Initialize the timers
-  _errorTimer = new Timer(60 * 1000, error, true);
-  _autoShutTimer = new Timer(60 * 1000, autoShut, true);
-  _refreshTimer= new Timer(3 * 1000, refreshDisplay, false);
-
+  _refreshTimer = new Timer(3 * 1000, refreshDisplay, false);
   _refreshTimer.start();
 
   Particle.connect();
@@ -279,75 +206,15 @@ void setup()
 
 void loop()
 {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   _humid = dht.readHumidity();
   _temp = dht.readTemperature(_asFarenheit);
-
-  bool closeSwitch = digitalRead(CLOSE_REED) == HIGH;
-  bool openSwitch = digitalRead(OPEN_REED) == HIGH;
-
-  //This is an error state. Should never happen
-  if (closeSwitch && openSwitch)
-  {
-    _autoShutTimer.stop();
-    _errorTimer.stop();
-    _openSwitch = openSwitch;
-    _closeSwitch = closeSwitch;
-    return;
-  }
-  //If the open switch just toggled
-  if (_openSwitch != openSwitch)
-  {
-    _failedToShut = false;
-    _openSwitch = openSwitch;
-    _overridden = false;
-    //Door has opened
-    if (_openSwitch)
-    {
-      //Enable AutoShut Timer
-      _timeToShut = _autoShutTimeOut;
-      _autoShutTimer.startFromISR();
-      //Disable Error Timer
-      _errorTimer.stopFromISR();
-      Particle.publish("Door Opened");
-    }
-    //Door is closing
-    else
-    {
-      //Enable Error Timer
-      _errorTimer.startFromISR();
-      Particle.publish("Door Closing");
-    }
-  }
-  //If the close switch just toggled
-  if (_closeSwitch != closeSwitch)
-  {
-    _failedToShut = false;
-    _closeSwitch = closeSwitch;
-    //Door has closed
-    if (_closeSwitch)
-    {
-      //Disable Error Timer
-      _errorTimer.stopFromISR();
-      Particle.publish("Door Closed");
-    }
-    //Door is opening
-    else
-    {
-      //Enable Error Timer
-      _errorTimer.startFromISR();
-      Particle.publish("Door Opening");
-    }
-  }
 
 }
 
 void refreshDisplay()
 {
-//  display.drawCircle(120,6,5,WHITE);
-//  display.display();
-  // Reading temperature or humidity takes about 250 milliseconds!
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-
   //Causes flicker. Would be better to call on state transition
   display.clearDisplay();
 
